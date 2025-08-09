@@ -1,0 +1,25 @@
+{
+  "name": "documentservices",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Asim Nazir",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "config": "^4.1.0",
+    "cors": "^2.8.5",
+    "debuger": "^0.0.0",
+    "dotenv": "^17.2.1",
+    "env": "^0.0.2",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.17.0",
+    "nodemon": "^3.1.10",
+    "path": "^0.12.7"
+  }
+}
