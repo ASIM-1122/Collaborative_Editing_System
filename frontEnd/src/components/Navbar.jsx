@@ -1,37 +1,32 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { logoutUser } from '../redux/userSlice';
 
-const Navbar = () => {
-  const { user } = useSelector(state => state.user);
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
+import React, { useContext } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { AuthContext } from '../context/AuthContext'
 
-  const handleLogout = async() => {
-    await dispatch(logoutUser());  // call async thunk
-     navigate('/login');
-  };
+export default function Navbar(){
+  const { user, logout } = useContext(AuthContext)
+  const nav = useNavigate()
 
   return (
-    <nav className="bg-gray-800 text-white p-4 flex justify-between items-center shadow">
-      <Link to="/" className="font-bold text-xl">CollabDocs</Link>
-      <div className="space-x-4">
+    <nav className="w-full py-4 px-6 flex items-center justify-between border-b border-white/6">
+      <div className="flex items-center gap-3">
+        <Link to="/" className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-accent to-accent2">CollabEdit</Link>
+        <div className="text-sm text-slate-300 ml-2">Realtime Docs</div>
+      </div>
+      <div className="flex items-center gap-4">
+        <Link to="/services" className="text-sm">Documents</Link>
         {user ? (
           <>
-            <Link to="/dashboard">Dashboard</Link>
-            <Link to="/profile">Profile</Link>
-            <button onClick={handleLogout} className="bg-red-500 hover:bg-red-700 px-3 py-1 rounded">Logout</button>
+            <Link to="/dashboard" className="text-sm">Dashboard</Link>
+            <button onClick={() => { logout(); nav('/') }} className="btn bg-gradient-to-r from-accent to-accent2 text-black">Logout</button>
           </>
         ) : (
           <>
-            <Link to="/login">Login</Link>
-            <Link to="/register">Register</Link>
+            <Link to="/login" className="btn bg-white/5">Login</Link>
+            <Link to="/register" className="btn bg-gradient-to-r from-accent to-accent2 text-black">Sign up</Link>
           </>
         )}
       </div>
     </nav>
-  );
-};
-
-export default Navbar;
+  )
+}

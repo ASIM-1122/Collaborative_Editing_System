@@ -1,33 +1,33 @@
 
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
-import DocumentEditor from "./pages/DocumentEditor";
-import Profile from "./pages/Profile";
-import PrivateRoute from "./utils/PrivateRoutes";
-import Navbar from "./components/Navbar";
-import CreateDocument from './pages/CreateDocument';
-import EditDocument from './pages/EditDocument';
+import React from 'react'
+import { Routes, Route } from 'react-router-dom'
+import Navbar from './components/Navbar'
+import Footer from './components/Footer'
+import Home from './pages/Home'
+import Services from './pages/Services'
+import ServiceDetails from './pages/ServiceDetails'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import Dashboard from './pages/Dashboard'
+import NotFound from './pages/NotFound'
+import ProtectedRoute from './components/ProtectedRoute'
 
-const App = () => {
+export default function App(){
   return (
-    <Router>
+    <div className="min-h-screen flex flex-col">
       <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-        <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-        <Route path="/create-document" element={<CreateDocument />} />
-        <Route path="/edit-document" element={<EditDocument />} />
-        <Route path="/document/:id" element={<PrivateRoute><DocumentEditor /></PrivateRoute>} />
-      </Routes>
-    </Router>
-  );
-};
-
-export default App;
+      <main className="flex-grow">
+        <Routes>
+          <Route path="/" element={<Home/>} />
+          <Route path="/services" element={<Services/>} />
+          <Route path="/services/:id" element={<ServiceDetails/>} />
+          <Route path="/login" element={<Login/>} />
+          <Route path="/register" element={<Register/>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard/></ProtectedRoute>} />
+          <Route path="*" element={<NotFound/>} />
+        </Routes>
+      </main>
+      <Footer />
+    </div>
+  )
+}

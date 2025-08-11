@@ -1,3 +1,17 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root{
+  --bg:#0f172a;
+  --card-bg: rgba(255,255,255,0.04);
+}
+
+body { background: var(--bg); color: #e6eef8; }
+
+/* glass card */
+.card { background: var(--card-bg); backdrop-filter: blur(6px); border-radius: 12px; padding: 1rem; }
+
+/* small utility */
+.btn { @apply inline-block px-4 py-2 rounded-xl font-semibold shadow-lg; }

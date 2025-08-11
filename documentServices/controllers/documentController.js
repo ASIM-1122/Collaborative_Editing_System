@@ -29,6 +29,59 @@ const createDocument  = async(req, res)=>{
     }
 }
 
+const fetchUserDocuments = async(req, res)=>{
+    try{
+        const owner = req.user.id || req.user._id;
+        const ownerEmail = req.user.email || req.user.email;
+        const documents = await documentModel.find({owner});
+        if(!documents || documents.length === 0){
+            return res.status(404).json({message:'No documents found for this user'});
+        }
+        return res.status(200).json({message:'Documents fetched successfully',documents,ownerEmail})
+
+    }
+    catch(err){
+        console.log(err.message);
+        return res.status(500).json({message:'fail to generate the document'})
+    }
+}
+
+const fetchAllDocuments = async(req, res)=>{
+    try{
+        const documents = await documentModel.find({isPublic:true});
+        if(!documents || documents.length === 0){
+            return res.status(404).json({message:'No documents found'});
+        }
+        return res.status(200).json({message:'Documents fetched successfully',documents})
+
+    }
+    catch(err){
+        console.log(err.message);
+        return res.status(500).json({message:'fail to generate the document'})
+    }
+}
+
+const fetchDocumentById = async(req, res)=>{
+    try{
+        const {id} = req.params;
+        if(!mongoose.Types.ObjectId.isValid(id)){
+            return res.status(400).json({message:'Invalid document ID'});
+        }
+        console.log(id);
+        // Fetch the document by ID
+        const document = await documentModel.findById(id);
+        if(!document || !document.isPublic){
+            return res.status(404).json({message:'Document not found'});
+        }
+        return res.status(200).json({message:'Documents fetched successfully',documents: [document]})
+
+    }
+    catch(err){
+        console.log(err.message);
+        return res.status(500).json({message:'fail to generate the document'})
+    }
+}
+
 const addCollaborator = async (req, res) => {
   try {
     const { newCollaborativeID } = req.body;
@@ -128,4 +181,4 @@ const deleteDocument = async (req,res)=>{
     }
 }
 
-module.exports={createDocument,deleteDocument,updateDocument,addCollaborator}
+module.exports={createDocument,deleteDocument,updateDocument,addCollaborator,fetchUserDocuments, fetchAllDocuments,fetchDocumentById}

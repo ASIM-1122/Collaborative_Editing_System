@@ -12,7 +12,7 @@ app.use(express.urlencoded({extended:true}));
 app.use(express.static(path.join(__dirname,'public')));
 // ✅ Allow frontend origin
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: 'http://localhost:5173', // Adjust this to your frontend URL
   credentials: true,
 }));
 
