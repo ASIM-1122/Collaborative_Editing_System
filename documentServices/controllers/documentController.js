@@ -48,6 +48,7 @@ const fetchUserDocuments = async(req, res)=>{
 
 const fetchAllDocuments = async(req, res)=>{
     try{
+      
         const documents = await documentModel.find({isPublic:true});
         if(!documents || documents.length === 0){
             return res.status(404).json({message:'No documents found'});
