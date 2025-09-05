@@ -10,9 +10,17 @@ const jwt = require('jsonwebtoken');
 const registerUser = async (req, res) => {
   try {
     const { fullName, email, password } = req.body;
-    if(fullName.length<=3 || password.length<=4){
-      return res.status(501).json({message:'min length of fullname would be 3 and password would be 4'})
+
+    // Defensive validation
+    if (
+      !fullName || typeof fullName !== 'string' || fullName.length <= 3 ||
+      !password || typeof password !== 'string' || password.length <= 4
+    ) {
+      return res.status(400).json({
+        message: 'Invalid input: fullname must be longer than 3 and password longer than 4 characters'
+      });
     }
+
     const existingUser = await userModel.findOne({ email });
     if (existingUser) {
       return res.status(409).json({ message: 'User already exists' });
@@ -33,16 +41,17 @@ const registerUser = async (req, res) => {
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: false, // set to true in production with HTTPS
+      secure: false, // set true in production with HTTPS
       sameSite: 'strict',
     });
 
     return res.status(201).json({ message: 'User registered successfully', user, token });
   } catch (err) {
-    console.error("Registration Error:", err); // Log the error
+    console.error("Registration Error:", err);
     return res.status(500).json({ message: 'Internal system error' });
   }
 };
+
 
 const loginUser = async (req,res)=>{
   try{

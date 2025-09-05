@@ -1,10 +1,15 @@
+// src/redux/store.js
 import { configureStore } from '@reduxjs/toolkit';
 import userReducer from './userSlice';
 import documentReducer from './documentSlice';
+import versionReducer from './versionSlice';
 
-export default configureStore({
+ const store = configureStore({
   reducer: {
     user: userReducer,
-    document: documentReducer,
+    documents: documentReducer,
+    versions: versionReducer,
   },
 });
+
+export default store;

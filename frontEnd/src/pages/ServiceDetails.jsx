@@ -1,126 +1,161 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { io } from "socket.io-client";
 import { useDispatch, useSelector } from "react-redux";
+import { fetchDocumentById, updateDocument } from "../redux/documentSlice";
 import Loader from "../components/Loader";
-import { updateDocument, fetchUserDocuments } from "../redux/documentSlice";
+import { getSocket } from "../utils/socket";
 
 export default function ServiceDetails() {
   const { id } = useParams();
   const dispatch = useDispatch();
 
-  const { documents, loading } = useSelector((state) => state.document);
-  const { user } = useSelector((state) => state.user); // ✅ fixed
+  // Use Redux, not Context
+  const user = useSelector((s) => s.user?.user);
+  const token = useSelector((s) => s.user?.token);
 
-  const doc = documents.find((d) => d._id === id);
+  const doc = useSelector((state) =>
+    state.documents.list.find((d) => d._id === id)
+  );
 
+  const socketRef = useRef(null);
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
-  const [versions, setVersions] = useState([]);
-  const socketRef = useRef(null);
+  const [lastSaved, setLastSaved] = useState("");
 
-  // Fetch user documents
+  // Load doc from API into Redux, then local state
   useEffect(() => {
-    dispatch(fetchUserDocuments());
-  }, [dispatch]);
-
-  // Set content when doc is loaded
-  useEffect(() => {
-    if (doc) {
+    if (!doc) {
+      dispatch(fetchDocumentById(id));
+    } else {
       setContent(doc.content || "");
+      setLastSaved(doc.content || "");
     }
-  }, [doc]);
+  }, [dispatch, id, doc]);
 
-  // Connect socket
+  // Setup socket (shared singleton)
   useEffect(() => {
-    socketRef.current = io(
-      import.meta.env.VITE_SOCKET_URL || "http://localhost:8000",
-      { transports: ["websocket"] }
-    );
+    if (!id || !token) return;
 
-    socketRef.current.emit("join-document", id);
+    const socket = getSocket(token);
+    socketRef.current = socket;
 
-    socketRef.current.on("receive-changes", ({ content: remote }) => {
-      if (remote !== content) setContent(remote);
-    });
+    // Join the doc room
+    socket.emit("join-document", id);
 
-    socketRef.current.on("document-saved", ({ content: remote }) => {
+    // Server may send initial content via socket
+    const onInit = (payload) => {
+      const remote = payload?.document?.content ?? "";
+      // Only set if we don't already have content from REST
+      if (!doc && typeof remote === "string") {
+        setContent(remote);
+        setLastSaved(remote);
+      }
+    };
+
+    const onReceive = ({ index, insertedText, deletedCount }) => {
+      // Apply remote diff to local content
+      setContent((prev) => {
+        const safeIndex = Math.max(0, Math.min(index, prev.length));
+        const del = Math.max(0, Math.min(deletedCount, prev.length - safeIndex));
+        const before = prev.slice(0, safeIndex);
+        const after = prev.slice(safeIndex + del);
+        return before + (insertedText || "") + after;
+      });
+    };
+
+    const onSaved = ({ content: remote }) => {
       setContent(remote);
-    });
+      setLastSaved(remote);
+    };
+
+    const onError = (msg) => {
+      console.error("[join-document:error]", msg);
+      // Optional: show a toast to the user
+      // e.g. toast.error(msg)
+    };
+
+    socket.on("document-init", onInit);
+    socket.on("receive-changes", onReceive);
+    socket.on("document-saved", onSaved);
+    socket.on("error-message", onError);
 
     return () => {
-      socketRef.current.disconnect();
+      socket.off("document-init", onInit);
+      socket.off("receive-changes", onReceive);
+      socket.off("document-saved", onSaved);
+      socket.off("error-message", onError);
+      // do not disconnect; other parts of app may use the same socket
     };
-  }, [id, content]);
+  }, [id, token, doc]);
 
   // Debounced autosave
   useEffect(() => {
-    const t = setTimeout(() => handleSave(false), 3000);
+    if (content === lastSaved) return;
+    const t = setTimeout(() => {
+      handleSave(false);
+    }, 3000);
     return () => clearTimeout(t);
-  }, [content]);
+  }, [content, lastSaved]);
 
+  // Local edit → compute diff → emit
   function handleLocalEdit(e) {
-    const v = e.target.value;
-    setContent(v);
+    const newValue = e.target.value;
+    const prevValue = content;
+
+    // Fast diff (single span)
+    let start = 0;
+    while (
+      start < newValue.length &&
+      start < prevValue.length &&
+      newValue[start] === prevValue[start]
+    ) {
+      start++;
+    }
+
+    let prevEnd = prevValue.length;
+    let newEnd = newValue.length;
+    while (
+      prevEnd > start &&
+      newEnd > start &&
+      prevValue[prevEnd - 1] === newValue[newEnd - 1]
+    ) {
+      prevEnd--;
+      newEnd--;
+    }
+
+    const deletedCount = Math.max(0, prevEnd - start);
+    const insertedText = newValue.slice(start, newEnd);
+
+    setContent(newValue);
+
+    // Emit diff (no need to include userId; server excludes sender)
     socketRef.current?.emit("send-changes", {
       documentId: id,
-      content: v,
+      index: start,
+      insertedText,
+      deletedCount,
     });
   }
 
-  async function handleSave() {
+  async function handleSave(showToast = true) {
+    if (!doc) return;
     try {
       setSaving(true);
-      await dispatch(
-        updateDocument({
-          documentID: id,
-          updatedData: { content, author: user?.id || user?.email },
-        })
-      ).unwrap();
-
-      socketRef.current?.emit("save-document", {
-        documentId: id,
-        content,
-      });
+      const updates = { content, author: user?._id || user?.email };
+      const resultAction = await dispatch(updateDocument({ id, updates }));
+      if (updateDocument.fulfilled.match(resultAction)) {
+        socketRef.current?.emit("save-document", { documentId: id, content });
+        setLastSaved(content);
+        // if (showToast) toast.success("Saved!")
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Save failed:", err);
     } finally {
       setSaving(false);
     }
   }
 
-  async function loadVersions() {
-    try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/version/${id}`
-      );
-      const data = await res.json();
-      setVersions(data);
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  async function handleRevert(versionId) {
-    try {
-      await fetch(
-        `${import.meta.env.VITE_API_URL}/version/revert/${id}/${versionId}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            author: user?.id || user?.email,
-          }),
-        }
-      );
-      dispatch(fetchUserDocuments());
-      loadVersions();
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  if (loading || !doc) return <Loader />;
+  if (!doc) return <Loader />;
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -133,9 +168,10 @@ export default function ServiceDetails() {
 
       <textarea
         value={content}
-        onChange={handleLocalEdit}
+        onChange={handleLocalEdit}       // use onChange in React
         className="w-full h-96 p-4 rounded-lg bg-white/5 border border-white/6"
       />
+
       <div className="mt-4 flex gap-3">
         <button
           onClick={() => handleSave(true)}
@@ -143,46 +179,7 @@ export default function ServiceDetails() {
         >
           Save
         </button>
-        <button
-          onClick={loadVersions}
-          className="btn bg-white/5"
-        >
-          Show Versions
-        </button>
       </div>
-
-      {versions.length > 0 && (
-        <div className="mt-6 card">
-          <h3 className="font-semibold mb-2">Version History</h3>
-          <div className="flex flex-col gap-3">
-            {versions.map((v) => (
-              <div
-                key={v._id}
-                className="p-3 border rounded bg-white/3"
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="text-sm text-slate-300">
-                      {new Date(v.createdAt).toLocaleString()}
-                    </div>
-                    <div className="text-sm">
-                      {v.content.slice(0, 120)}
-                    </div>
-                  </div>
-                  <div>
-                    <button
-                      onClick={() => handleRevert(v._id)}
-                      className="btn bg-white/5"
-                    >
-                      Revert
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

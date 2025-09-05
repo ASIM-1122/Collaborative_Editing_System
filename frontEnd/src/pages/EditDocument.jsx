@@ -1,39 +1,80 @@
-import React, { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import { updateDocument } from '../redux/documentSlice';
+// pages/EditDocument.jsx
+import React, { useState, useEffect, useCallback } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { useNavigate, useParams } from "react-router-dom";
+import { fetchDocumentById, updateDocument } from "../redux/documentSlice";
+import { addVersion } from "../redux/versionSlice";
 
 const EditDocument = () => {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [isPublic, setIsPublic] = useState(false);
+  const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { user } = useSelector((state) => state.user);
-  const { loading, error } = useSelector((state) => state.document);
 
-  // Redirect to login if not authenticated
+  const { user } = useSelector((state) => state.user);
+  const { document, loading, error } = useSelector((state) => state.documents);
+
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
+
+  // Redirect if not logged in
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-    }
+    if (!user) navigate("/login");
   }, [user, navigate]);
+
+  // Fetch document data
+  const loadDocument = useCallback(() => {
+    dispatch(fetchDocumentById(id));
+  }, [dispatch, id]);
+
+  useEffect(() => {
+    loadDocument();
+  }, [loadDocument]);
+
+  // Populate form once document is loaded
+  useEffect(() => {
+    if (document) {
+      setTitle(document.title || "");
+      setContent(document.content || "");
+      setIsPublic(document.isPublic || false);
+    }
+  }, [document]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const result = await dispatch(updateDocument({ title, content, isPublic }));
-    if (result.meta.requestStatus === 'fulfilled') {
-      alert('Document created successfully!');
-      navigate('/');
+    const result = await dispatch(
+      updateDocument({ id, title, content, isPublic })
+    );
+
+    if (result.meta.requestStatus === "fulfilled") {
+      // Store version in history
+      dispatch(
+        addVersion({
+          documentId: id,
+          title,
+          content,
+          updatedBy: user?.name || "Unknown",
+          updatedAt: new Date().toISOString(),
+        })
+      );
+
+      alert("Document updated successfully!");
+      navigate(`/document/${id}`);
     } else {
-      alert('Error: ' + result.payload);
+      alert("Error: " + (result.payload || "Unknown error"));
     }
   };
+
+  if (loading && !document) {
+    return <p className="p-6">Loading document...</p>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
       <div className="w-full max-w-2xl bg-white p-8 rounded shadow-md">
-        <h2 className="text-2xl font-bold text-center text-green-600 mb-6">Edit Your Document</h2>
+        <h2 className="text-2xl font-bold text-center text-green-600 mb-6">
+          Edit Your Document
+        </h2>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
@@ -66,7 +107,9 @@ const EditDocument = () => {
               onChange={(e) => setIsPublic(e.target.checked)}
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
-            <label className="ml-2 text-gray-700">Make this document public</label>
+            <label className="ml-2 text-gray-700">
+              Make this document public
+            </label>
           </div>
 
           <button
@@ -74,7 +117,7 @@ const EditDocument = () => {
             className="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded hover:bg-blue-700 transition"
             disabled={loading}
           >
-            {loading ? 'Editing...' : 'edit Document'}
+            {loading ? "Editing..." : "Save Changes"}
           </button>
 
           {error && <p className="text-red-500 text-center mt-2">{error}</p>}

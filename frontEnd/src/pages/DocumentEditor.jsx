@@ -1,57 +1,111 @@
 // pages/DocumentEditor.jsx
-import React, { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
-import api from '../services/api';
-import { useSelector } from 'react-redux';
+import React, { useEffect, useState, useCallback } from "react";
+import { useParams } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { fetchDocumentById, updateDocument } from "../redux/documentSlice";
+import { addVersion } from "../redux/versionSlice";
+import { io } from "socket.io-client";
+
+const socket = io("http://localhost:3000"); // Adjust for your backend
 
 const DocumentEditor = () => {
   const { id } = useParams();
-  const user = useSelector(state => state.user.user); // fixed path to user
-  const [doc, setDoc] = useState(null);
-  const [content, setContent] = useState('');
-  const [title, setTitle] = useState('');
+  const dispatch = useDispatch();
 
-  const fetchDoc = useCallback(async () => {
-    try {
-      const res = await api.get(`/document/${id}`);
-      setDoc(res.data);
-      setTitle(res.data.title);
-      setContent(res.data.content);
-      console.log(user)
-    } catch (error) {
-      console.error('Failed to fetch document:', error);
-    }
+  const { document, loading } = useSelector((state) => state.documents);
+  const { user } = useSelector((state) => state.user);
+
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+
+  // Fetch document from Redux/Backend
+  const fetchDoc = useCallback(() => {
+    dispatch(fetchDocumentById(id));
+  }, [dispatch, id]);
+
+  // Handle Save
+  const handleSave = () => {
+    dispatch(updateDocument({ id, title, content }))
+      .unwrap()
+      .then((updatedDoc) => {
+        // Store new version in Redux
+        dispatch(
+          addVersion({
+            documentId: id,
+            content,
+            title,
+            updatedBy: user?.name || "Unknown",
+            updatedAt: new Date().toISOString(),
+          })
+        );
+
+        // Emit save event to other clients
+        socket.emit("save-document", {
+          documentId: id,
+          title,
+          content,
+          user: user?.name,
+        });
+      });
+  };
+
+  // Listen for socket updates
+  useEffect(() => {
+    socket.emit("join-document", id);
+
+    socket.on("document-updated", (data) => {
+      if (data.documentId === id) {
+        setTitle(data.title);
+        setContent(data.content);
+      }
+    });
+
+    return () => {
+      socket.off("document-updated");
+    };
   }, [id]);
 
-  const handleSave = async () => {
-    try {
-      await api.put(`/document/update/${id}`, {
-        title,
-        content,
-      });
-      fetchDoc();
-    } catch (error) {
-      console.error('Failed to save document:', error);
+  // Sync local state when Redux document changes
+  useEffect(() => {
+    if (document) {
+      setTitle(document.title);
+      setContent(document.content);
     }
-  };
+  }, [document]);
 
   useEffect(() => {
     fetchDoc();
   }, [fetchDoc]);
 
-  if (!doc) return <p className="p-6">Loading document...</p>;
+  if (loading) return <p className="p-6">Loading document...</p>;
 
   return (
     <div className="p-6">
       <input
         className="text-2xl font-bold w-full mb-4 border-b pb-1"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={(e) => {
+          setTitle(e.target.value);
+          socket.emit("edit-document", {
+            documentId: id,
+            title: e.target.value,
+            content,
+            user: user?.name,
+          });
+        }}
       />
       <textarea
         className="w-full h-96 border p-4 rounded"
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={(e) => {
+          setContent(e.target.value);
+          socket.emit("edit-document", {
+            documentId: id,
+            title,
+            content: e.target.value,
+            user: user?.name,
+          });
+        }}
       />
       <button
         onClick={handleSave}

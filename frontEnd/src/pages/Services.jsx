@@ -1,35 +1,35 @@
-
-import React, { useEffect, useState } from 'react'
-import api from '../utils/documentsApi'
+import React, { useEffect } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { fetchAllDocuments } from '../redux/documentSlice' // Correct thunk import
 import ServiceCard from '../components/ServiceCard'
 import Loader from '../components/Loader'
 
-export default function Services(){
-  const [docs, setDocs] = useState([])
-  const [loading, setLoading] = useState(false)
+export default function Services() {
+  const dispatch = useDispatch()
 
-  async function load(){
-    try{
-      setLoading(true)
-      const res = await api.get('/document/fetchAllDocuments')
-      console.log(res.data)
-      setDocs(res.data.documents || [])
-    }catch(err){
-      console.error(err)
-    }finally{ setLoading(false) }
-  }
+  // Select documents list and loading state from Redux
+  const { list: docs, loading } = useSelector(state => state.documents)
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    dispatch(fetchAllDocuments()) // Use fetchAllDocuments thunk
+  }, [dispatch])
 
   return (
     <div className="p-8">
       <div className="max-w-6xl mx-auto">
         <h2 className="text-2xl font-semibold mb-4">Documents</h2>
-        {loading ? <Loader /> : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {docs.map(d => <ServiceCard key={d._id} doc={d} />)}
-          </div>
-        )}
+        {loading ? (
+  <Loader />
+) : Array.isArray(docs) && docs.length > 0 ? (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    {docs.map(d => (
+      <ServiceCard key={d._id} doc={d} />
+    ))}
+  </div>
+) : (
+  <p>No documents found.</p>
+)}
+
       </div>
     </div>
   )
