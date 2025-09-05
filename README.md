@@ -1,33 +1,37 @@
 # Collaborative Editing System
 
-This project is a full-stack collaborative document editing system, featuring user authentication, document creation, editing, and real-time collaboration capabilities. The system is divided into three main components:
+A full-stack, microservices-based platform for real-time document collaboration, user authentication, and version management.
+
+---
+
+## Architecture
 
 - **User Services** (`userServices/`): Handles user registration, login, authentication, and token management.
-- **Document Services** (`documentServices/`): Manages document CRUD operations, collaboration, and access control.
-- **Front End** (`frontEnd/`): A React-based web application for users to interact with the system.
+- **Document Services** (`documentServices/`): Manages document CRUD, collaboration requests, and real-time editing via Socket.IO.
+- **Front End** (`frontEnd/`): React + Redux web app for users to interact with documents and collaboration features.
 
 ---
 
 ## Features
 
-- User registration and login with JWT authentication
-- Secure password hashing using bcrypt
+- JWT-based authentication and secure password hashing (bcrypt)
 - Create, edit, and delete documents
-- Add collaborators to documents
+- Add collaborators and manage access
 - Public/private document visibility
-- Redux state management on the frontend
-- RESTful API structure
-- CORS and cookie-based authentication for secure cross-origin requests
+- Collaboration requests (owner approval required)
+- Real-time editing with Socket.IO
+- Redux state management on frontend
+- RESTful APIs with CORS and cookie support
 
 ---
 
 ## Folder Structure
 
 ```
-Collaborative_Editing_System/
+Collaborative-Editing-System/
 │
 ├── userServices/         # User authentication microservice (Node.js, Express, MongoDB)
-├── documentServices/     # Document management microservice (Node.js, Express, MongoDB)
+├── documentServices/     # Document management microservice (Node.js, Express, MongoDB, Socket.IO)
 └── frontEnd/             # React frontend (Vite, Redux Toolkit, Tailwind CSS)
 ```
 
@@ -39,7 +43,7 @@ Collaborative_Editing_System/
 
 ```sh
 git clone <your-repo-url>
-cd Collaborative_Editing_System
+cd Collaborative-Editing-System
 ```
 
 ### 2. Environment Variables
@@ -83,37 +87,60 @@ cd frontEnd
 npm run dev
 ```
 
-The frontend will be available at [http://localhost:5173](http://localhost:5173).
+Frontend runs at [http://localhost:5173](http://localhost:5173).
 
 ---
 
 ## API Endpoints
 
 ### User Services (`http://localhost:5000/users`)
-- `POST /register` - Register a new user
-- `POST /login` - Login and receive JWT token
-- `POST /logout` - Logout and blacklist token
-- `GET /profile` - Get user profile (requires authentication)
+- `POST /register` — Register a new user
+- `POST /login` — Login and receive JWT token
+- `POST /logout` — Logout and blacklist token
+- `GET /profile` — Get user profile (requires authentication)
+- `GET /:id` — Get user by ID
+- `POST /bulk` — Bulk fetch users by IDs
 
 ### Document Services (`http://localhost:3000/document`)
-- `POST /create` - Create a new document (requires authentication)
-- `PUT /updateDocument/:documentID` - Update a document (owner/collaborator only)
-- `DELETE /delete/:id` - Delete a document (owner only)
-- `POST /addCollaborator/:documentID` - Add a collaborator (owner only)
+- `POST /create` — Create a new document (auth required)
+- `GET /fetchUserDocuments` — Get documents for logged-in user
+- `GET /fetchAllDocuments` — Get all public documents
+- `GET /fetchDocumentById/:id` — Get document by ID (auth required)
+- `POST /addCollaborator/:documentID` — Add collaborator (owner only)
+- `PUT /updateDocument/:documentID` — Update document (owner/collaborator only)
+- `DELETE /delete/:id` — Delete document (owner only)
+
+### Collaboration Requests (`http://localhost:3000/document-requests`)
+- `POST /requestCollaborator/:documentID` — Request to collaborate (non-owner)
+- `GET /requests` — Get pending requests for owner
+- `POST /requests/:requestId/accept` — Accept request (owner only)
+- `POST /requests/:requestId/decline` — Decline request (owner only)
+
+---
+
+## Real-Time Collaboration
+
+- Socket.IO server runs in `documentServices`
+- Events:
+  - `join-document` — Join document room
+  - `send-changes` — Broadcast live typing changes
+  - `save-document` — Save document content
+  - Collaboration request/accept/decline notifications
 
 ---
 
 ## Frontend Usage
 
-- Register or login to access your dashboard.
-- Create new documents, edit existing ones, or collaborate on shared documents.
-- Profile and authentication state are managed via Redux and cookies/localStorage.
+- Register or login to access dashboard
+- Create, edit, and collaborate on documents
+- Send/accept collaboration requests
+- Real-time editing and version history
 
 ---
 
 ## Technologies Used
 
-- **Backend:** Node.js, Express, MongoDB, Mongoose, JWT, bcrypt
+- **Backend:** Node.js, Express, MongoDB, Mongoose, JWT, bcrypt, Socket.IO
 - **Frontend:** React, Redux Toolkit, Axios, Tailwind CSS, Vite
 - **Other:** dotenv, cookie-parser, CORS, EJS (for server views)
 
@@ -121,13 +148,13 @@ The frontend will be available at [http://localhost:5173](http://localhost:5173)
 
 ## Contribution
 
-Feel free to fork this repository and submit pull requests. For major changes, please open an issue first to discuss what you would like to change.
+Fork and submit pull requests. For major changes, open an issue first.
 
 ---
 
 ## License
 
-This project is licensed under the ISC License.
+ISC License
 
 ---
 
